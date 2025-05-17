@@ -1,34 +1,31 @@
 trigger:
   branches:
     include:
-      - dev   # or main, depending on your branch
+      - dev
 
 pool:
-  name: Default  # Uses your self-hosted agent
-
-variables:
-  buildDir: 'build'
+  vmImage: 'ubuntu-latest'
 
 steps:
-  - script: |
-      node -v
-      npm -v
-    displayName: 'Check Node.js and npm versions'
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '16.x'
+    displayName: 'Install Node.js'
 
   - script: |
-      npm ci
+      npm install
       npm run build
-    displayName: 'Install dependencies and build React app'
+    displayName: 'Build React App'
 
-  - task: CopyFiles@2
+  - task: AzureCLI@2
     inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)/$(buildDir)'
-      Contents: '**'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: 'Copy build files to staging directory'
-
-  - task: PublishBuildArtifacts@1
-    inputs:
-      pathToPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'reactapp'
-    displayName: 'Publish build artifacts'
+      azureSubscription: 'AzureBlobConnection' # Use the exact service connection name you created
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az storage blob upload-batch \
+          --account-name reactappteju \
+          --destination '$web' \
+          --source ./build \
+          --overwrite
+    displayName: 'Deploy to Azure Blob'
