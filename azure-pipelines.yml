@@ -1,34 +1,34 @@
 trigger:
   branches:
     include:
-      - dev   # or main, depending on your branch name
+      - dev   # or main, depending on your branch
 
 pool:
-  vmImage: 'ubuntu-latest'
+  name: Default  # Uses your self-hosted agent
 
 variables:
   buildDir: 'build'
 
 steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '18.x'  # use appropriate Node.js version
-    displayName: 'Install Node.js'
+  - script: |
+      node -v
+      npm -v
+    displayName: 'Check Node.js and npm versions'
 
   - script: |
       npm ci
       npm run build
-    displayName: 'Install deps and build React app'
+    displayName: 'Install dependencies and build React app'
 
   - task: CopyFiles@2
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)/$(buildDir)'
       Contents: '**'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: 'Copy build to staging'
+    displayName: 'Copy build files to staging directory'
 
   - task: PublishBuildArtifacts@1
     inputs:
       pathToPublish: '$(Build.ArtifactStagingDirectory)'
       artifactName: 'reactapp'
-    displayName: 'Publish Artifact'
+    displayName: 'Publish build artifacts'
