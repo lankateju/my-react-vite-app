@@ -7,25 +7,32 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
+  # Step 1: Install Node.js (version 18)
   - task: NodeTool@0
     inputs:
       versionSpec: '18.x'
     displayName: 'Install Node.js'
 
+  # Step 2: Install dependencies and build React app (Vite)
   - script: |
       npm install
       npm run build
     displayName: 'Build React App'
 
+  # Step 3: Check that the build output folder exists (dist)
+  - script: ls -l ./dist
+    displayName: 'List files in dist folder'
+
+  # Step 4: Deploy built app to Azure Blob Storage
   - task: AzureCLI@2
     inputs:
-      azureSubscription: 'AzureBlobConnection'
+      azureSubscription: 'AzureBlobConnection'   # Your Azure service connection name
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
         az storage blob upload-batch \
           --account-name reactappteju \
           --destination '$web' \
-          --source ./build \
+          --source ./dist \
           --overwrite
     displayName: 'Deploy to Azure Blob'
