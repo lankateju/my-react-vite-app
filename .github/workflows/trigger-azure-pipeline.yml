@@ -1,0 +1,20 @@
+name: Trigger Azure DevOps Pipeline
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Azure DevOps Pipeline
+        uses: Azure/pipelines@v1
+        with:
+          azure-devops-project-url: https://dev.azure.com/tejaswinilanka/react-app
+          azure-pipeline-name: lankateju.my-react-vite-app
+
+        env:
+          AZURE_DEVOPS_EXT_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
