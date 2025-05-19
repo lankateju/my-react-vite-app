@@ -6,7 +6,7 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Hello from My First Vite React App! tejuuuuuu👋</h1>
+      <h1>Hello from My First Vite React App! tejuuuuuuuuuuuuuuùuù👋</h1>
       <p>You clicked {count} times</p>
       <button onClick={() => setCount(count + 1)}>Click me</button>
     </div>
