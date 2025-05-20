@@ -1,38 +1,88 @@
+# React App Deployment Pipeline
+# Builds and deploys React application to Azure Storage static website
+
 trigger:
   branches:
     include:
       - dev
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: "ubuntu-latest"
 
-steps:
-  # Step 1: Install Node.js (version 18)
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '18.x'
-    displayName: 'Install Node.js'
+variables:
+  azureStorageAccount: "reactappteju"
+  containerName: "$web"
+  reactBuildFolder: "$(Build.SourcesDirectory)/dist"
+  storageURL: "https://reactappteju.z14.web.core.windows.net/"
 
-  # Step 2: Install dependencies and build React app (Vite)
-  - script: |
-      npm install
-      npm run build
-    displayName: 'Build React App'
+stages:
+  - stage: Build
+    displayName: "Build React App"
+    jobs:
+      - job: BuildReactApp
+        displayName: "Build React application"
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "18.x"
+            displayName: "Install Node.js"
 
-  # Step 3: Check that the build output folder exists (dist)
-  - script: ls -l ./dist
-    displayName: 'List files in dist folder'
+          - script: |
+              npm install
+              npm run build
+            displayName: "Install Dependencies and Build App"
 
-  # Step 4: Deploy built app to Azure Blob Storage
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: 'AzureBlobConnection'   # Your Azure service connection name
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        az storage blob upload-batch \
-          --account-name reactappteju \
-          --destination '$web' \
-          --source ./dist \
-          --overwrite
-    displayName: 'Deploy to Azure Blob'
+          - script: |
+              mkdir -p "$(Build.ArtifactStagingDirectory)"
+              cp -r "$(reactBuildFolder)/"* "$(Build.ArtifactStagingDirectory)"
+            displayName: "Copy build files to staging"
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: "$(Build.ArtifactStagingDirectory)"
+              artifact: "react-build"
+            displayName: "Publish build artifacts"
+
+  - stage: Deploy
+    displayName: "Deploy to Azure Storage"
+    dependsOn: Build
+    jobs:
+      - job: UploadStaticSite
+        displayName: "Upload website to Azure Storage"
+        steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: "current"
+              artifactName: "react-build"
+              targetPath: "$(System.ArtifactsDirectory)/react-build"
+            displayName: "Download build artifacts"
+
+          - task: AzureCLI@2
+            displayName: "Upload files to Azure Storage"
+            inputs:
+              azureSubscription: "AzureBlobConnection"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "Getting storage account key..."
+                STORAGE_KEY=$(az storage account keys list --account-name $(azureStorageAccount) --query "[0].value" -o tsv)
+
+                echo "Listing current blobs in container..."
+                az storage blob list --account-name $(azureStorageAccount) --container-name '$web' --account-key "$STORAGE_KEY" --output none
+
+                echo "Cleaning existing files in container..."
+                az storage blob delete-batch \
+                  --account-name $(azureStorageAccount) \
+                  --account-key "$STORAGE_KEY" \
+                  --source '$web'
+
+                echo "Uploading new files..."
+                az storage blob upload-batch \
+                  --account-name $(azureStorageAccount) \
+                  --account-key "$STORAGE_KEY" \
+                  --destination '$web' \
+                  --source "$(System.ArtifactsDirectory)/react-build"
+
+          - script: |
+              echo "Successfully deployed to $(storageURL)"
+            displayName: "Deployment confirmation"
